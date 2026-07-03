@@ -1,0 +1,604 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Production Board</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400;12..96,600;12..96,800&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+:root{
+  --paper:#F5F4EF; --panel:#FFFFFF; --ink:#20242B; --ink2:#5C636E;
+  --line:#E4E2D9; --press:#274690; --press-soft:#E7ECF7;
+  --mark:#FFD84D; --mark-ink:#6B5400; --plan:#B9C0CA;
+  --danger:#B4372E; --ok:#2E7D4F;
+  --radius:10px;
+  --disp:'Bricolage Grotesque',system-ui,sans-serif;
+  --body:'Inter',system-ui,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--paper);color:var(--ink);font-family:var(--body);font-size:14px;line-height:1.45}
+button{font-family:var(--body);cursor:pointer}
+input,textarea,select{font-family:var(--body);font-size:14px;color:var(--ink)}
+:focus-visible{outline:2px solid var(--press);outline-offset:2px}
+
+/* ---------- shell ---------- */
+.topbar{display:flex;align-items:baseline;gap:14px;padding:18px 20px 0}
+.brand{font-family:var(--disp);font-weight:800;font-size:22px;letter-spacing:-.02em}
+.brand .tick{color:var(--press)}
+.tagline{color:var(--ink2);font-size:12px}
+.savestate{margin-left:auto;font-family:var(--mono);font-size:11px;color:var(--ink2)}
+.tabs{display:flex;gap:4px;padding:12px 20px 0;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.tab{background:none;border:none;border-bottom:3px solid transparent;padding:8px 12px 10px;font-size:14px;font-weight:600;color:var(--ink2)}
+.tab[aria-selected="true"]{color:var(--ink);border-bottom-color:var(--mark)}
+.tab .cnt{font-family:var(--mono);font-size:11px;color:var(--ink2);margin-left:4px}
+main{padding:18px 20px 60px;max-width:1400px}
+.loading{padding:60px 20px;color:var(--ink2);font-family:var(--mono);font-size:12px}
+
+/* ---------- shared bits ---------- */
+.toolrow{display:flex;gap:8px;align-items:center;margin-bottom:14px;flex-wrap:wrap}
+.search{flex:1;min-width:180px;max-width:360px;padding:8px 12px;border:1px solid var(--line);border-radius:var(--radius);background:var(--panel)}
+.btn{border:1px solid var(--line);background:var(--panel);border-radius:var(--radius);padding:8px 12px;font-weight:600;font-size:13px}
+.btn:hover{border-color:var(--press);color:var(--press)}
+.btn.primary{background:var(--press);border-color:var(--press);color:#fff}
+.btn.primary:hover{filter:brightness(1.1);color:#fff}
+.btn.ghost{border-color:transparent;background:transparent;color:var(--ink2)}
+.btn.ghost:hover{color:var(--danger)}
+.chip{border:1px solid var(--line);background:var(--panel);border-radius:99px;padding:5px 11px;font-size:12px;font-weight:600;color:var(--ink2)}
+.chip.on{background:var(--ink);border-color:var(--ink);color:#fff}
+.empty{padding:30px;border:1px dashed var(--line);border-radius:var(--radius);color:var(--ink2);text-align:center}
+
+/* ---------- matrix ---------- */
+.matrix-wrap{overflow:auto;border:1px solid var(--line);border-radius:var(--radius);background:var(--panel);max-height:76vh}
+table.matrix{border-collapse:separate;border-spacing:0;font-size:13px}
+.matrix th,.matrix td{border-bottom:1px solid var(--line);border-right:1px solid var(--line)}
+.matrix thead th{position:sticky;top:0;background:var(--panel);z-index:3;vertical-align:bottom;height:150px;padding:0}
+.matrix thead th:first-child{z-index:4}
+.colhead{display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;width:46px;padding-bottom:8px;gap:6px}
+.colhead .nm{writing-mode:vertical-rl;transform:rotate(180deg);max-height:104px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:600;font-size:12px;cursor:pointer}
+.colhead .nm:hover{color:var(--press)}
+.pbar{width:26px;height:5px;border-radius:3px;background:var(--line);overflow:hidden}
+.pbar i{display:block;height:100%;background:var(--mark)}
+.pnum{font-family:var(--mono);font-size:10px;color:var(--ink2)}
+.matrix .rowlab{position:sticky;left:0;background:var(--panel);z-index:2;text-align:left;font-weight:500;padding:7px 12px;min-width:180px;max-width:230px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.matrix tr.grp td{background:var(--paper);font-family:var(--disp);font-weight:800;font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink2);padding:8px 12px;position:sticky;left:0}
+.cell{width:46px;height:34px;text-align:center;padding:0;cursor:pointer;user-select:none;position:relative}
+.cell:hover{background:var(--press-soft)}
+.cell .swipe{display:inline-block;width:26px;height:16px;border-radius:5px;transform:rotate(-3deg)}
+.cell.s2 .swipe{background:var(--mark);box-shadow:0 0 0 1px rgba(107,84,0,.15) inset}
+.cell.s2 .swipe::after{content:"✓";display:block;font-size:12px;font-weight:700;color:var(--mark-ink);line-height:16px}
+.cell.s1 .swipe{border:2px dashed var(--plan)}
+.legend{display:flex;gap:16px;margin-top:10px;font-size:12px;color:var(--ink2);align-items:center;flex-wrap:wrap}
+.legend .swipe{display:inline-block;width:22px;height:13px;border-radius:4px;transform:rotate(-3deg);vertical-align:-2px;margin-right:5px}
+.legend .done{background:var(--mark)}
+.legend .plan{border:2px dashed var(--plan)}
+
+/* project drawer */
+.drawer-bg{position:fixed;inset:0;background:rgba(32,36,43,.35);z-index:20;display:flex;justify-content:flex-end}
+.drawer{background:var(--panel);width:min(440px,92vw);height:100%;padding:22px;overflow:auto;box-shadow:-8px 0 30px rgba(0,0,0,.12)}
+.drawer h2{font-family:var(--disp);font-weight:800;margin:0 0 4px;font-size:20px}
+.drawer .sub{font-family:var(--mono);font-size:11px;color:var(--ink2);margin-bottom:16px}
+.field{margin-bottom:14px}
+.field label{display:block;font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--ink2);margin-bottom:5px}
+.field input,.field textarea{width:100%;border:1px solid var(--line);border-radius:8px;padding:8px 10px;background:#fff}
+.field textarea{min-height:70px;resize:vertical}
+.drawer .actions{display:flex;gap:8px;margin-top:18px}
+
+/* ---------- ideas ---------- */
+.idea-add{display:flex;gap:8px;margin-bottom:14px}
+.idea-add input{flex:1;padding:9px 12px;border:1px solid var(--line);border-radius:var(--radius);background:var(--panel)}
+.idea{display:flex;align-items:center;gap:10px;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:8px 12px;margin-bottom:6px}
+.idea.done .nm{text-decoration:line-through;color:var(--ink2)}
+.idea .pri{border:none;border-radius:6px;font-family:var(--mono);font-size:10px;font-weight:600;padding:4px 7px;min-width:44px;text-align:center}
+.pri.p-top{background:var(--danger);color:#fff}
+.pri.p-high{background:var(--press);color:#fff}
+.pri.p-med{background:var(--press-soft);color:var(--press)}
+.pri.p-star{background:var(--mark);color:var(--mark-ink)}
+.pri.p-{background:var(--paper);color:var(--ink2);border:1px solid var(--line)}
+.idea .nm{flex:1;border:none;background:transparent;font-size:14px;padding:2px}
+.idea .note-btn{border:none;background:none;font-size:12px;color:var(--ink2)}
+.idea .note-btn.has{color:var(--press);font-weight:700}
+.idea input[type=checkbox]{width:17px;height:17px;accent-color:var(--press)}
+.idea .del{border:none;background:none;color:var(--ink2);font-size:15px;padding:2px 6px}
+.idea .del:hover{color:var(--danger)}
+.idea-note{margin:-2px 0 8px 66px}
+.idea-note textarea{width:100%;max-width:640px;border:1px solid var(--line);border-radius:8px;padding:8px;min-height:56px}
+
+/* ---------- weekly ---------- */
+.week-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(330px,1fr));gap:14px}
+.wcard{background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:16px}
+.wcard h3{font-family:var(--disp);font-weight:800;font-size:16px;margin:0 0 12px}
+.gcard{background:var(--ink);color:#fff;border-radius:var(--radius);padding:16px}
+.gcard h3{font-family:var(--disp);font-weight:800;font-size:15px;margin:0 0 10px;color:var(--mark)}
+.gcard ul{margin:0;padding-left:18px;font-size:13px;line-height:1.7}
+.gcard b{color:var(--mark)}
+
+/* ---------- genies ---------- */
+.gen-cat{margin-bottom:20px}
+.gen-cat h3{font-family:var(--disp);font-weight:800;font-size:15px;letter-spacing:.02em;margin:0 0 8px;display:flex;align-items:center;gap:8px}
+.gen-cat h3 .n{font-family:var(--mono);font-size:10px;color:var(--ink2);font-weight:500}
+.gen-links{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:8px}
+.glink{display:flex;align-items:center;gap:8px;background:var(--panel);border:1px solid var(--line);border-radius:var(--radius);padding:9px 12px;text-decoration:none;color:var(--ink);font-size:13px;font-weight:500}
+.glink:hover{border-color:var(--press);color:var(--press)}
+.glink .arrow{margin-left:auto;color:var(--ink2);font-family:var(--mono);font-size:11px}
+.glink .del{border:none;background:none;color:var(--ink2);padding:0 2px}
+.glink .del:hover{color:var(--danger)}
+
+@media (max-width:640px){
+  main{padding:14px 10px 60px}
+  .topbar{padding:14px 12px 0}
+  .tabs{padding:8px 8px 0}
+  .matrix .rowlab{min-width:130px;max-width:150px;font-size:12px}
+}
+@media (prefers-reduced-motion: reduce){ *{transition:none!important;animation:none!important} }
+</style>
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">Production<span class="tick"> Board</span></div>
+  <div class="tagline">Do in hours what normally takes weeks.</div>
+  <div class="savestate" id="saveState">loading…</div>
+  <button onclick="openSettings()" style="border:1px solid var(--line);background:var(--panel);border-radius:8px;padding:6px 10px;font-size:15px;cursor:pointer;margin-left:8px" title="Settings — GitHub Gist connection">⚙</button>
+</header>
+<nav class="tabs" role="tablist" id="tabs"></nav>
+<main id="main"><div class="loading">Loading your board…</div></main>
+
+<script>
+/* =============== seed data (from your spreadsheet) =============== */
+const SEED_PROJECT_NAMES = ["Ditch The Doubt","10 Core Questions That Create Life Changing Goals","The Avatar Code part 1","The Avatar Code Part 2","The Avatar Code Workbook","Anges Wings","The Chocolate Chef: Uncovered","The Chocolate Chef: Missing Recipes","I Let Him Be","The Power of Time Management and Goal Setting for Academic Success","Creating An Accelerated Life-Plan","Improve Low Morale","Study Smart Succeed Faster","Habit Finder Measurements"];
+
+const GROUPS = [
+ {name:"Foundation", rows:["Youvatar","Avatar","10-Day Pre-Launch Sequence","Launch Sequence"]},
+ {name:"Products", rows:["Ebook","Workbook","Paperback","Audio Book","Checklists","Special Reports","Slide Decks"]},
+ {name:"Offers & Programs", rows:["Offer / OTO / Bump","Webinar","Course","Workshop","Mastermind","Coaching"]},
+ {name:"Marketing", rows:["Website","Blog Posts","Podcasts","Social Posts","Short Video","Long Video","Email Lead Gen","Email Drip Content"]}
+];
+const ALL_ROWS = GROUPS.flatMap(g=>g.rows);
+
+// deliverable -> project indexes marked done in the spreadsheet
+const SEED_DONE = {
+ "Ebook":[0,1,2,3,4,5,6,7,8,9,10],
+ "Website":[2,3,4,6,7,11],
+ "Paperback":[5,9],
+ "Webinar":[11],"Workshop":[11],"Coaching":[11],
+ "Checklists":[1],"Slide Decks":[1],"Email Lead Gen":[1],"Email Drip Content":[1]
+};
+const SEED_NOTES = {
+ 0:"Build website, make print book, make audio book, build a course, schedule webinar, set up mastermind and coaching. Make social posts and videos.",
+ 6:"Create value ladder"
+};
+
+const IDEAS_SEED = [["top", "how to have difficult conversations with difficult people", "", ""], ["high", "Conflict to connection: The guide for leaders", "", ""], ["high", "buddha's guide to business breakthroughs", "", ""], ["high", "The rise of zen leadership", "", ""], ["high", "Buddha's Business Blueprint", "", ""], ["high", "equanimity of leadership", "", ""], ["high", "Buddha’s Guide to Leadership", "", ""], ["high", "zen leadership", "", ""], ["high", "Mindfulness in the C-Suite", "", ""], ["high", "zen in the c-suite", "", ""], ["high", "The Sweet Spot of Leadership: Finding Balance and Trust in Teams Through the Joy of Chocolate Experiences", "", ""], ["high", "Sweet leadership: transfomring teams through chocoltae - balancing leadership and team performance", "", ""], ["high", "The sweet spot: balancing leaership and team performance", "", ""], ["high", "The Leadership Sweet Spot: Finding Balance and Trust in Leadership Through the Joy of Chocolate", "", ""], ["star", "curiosity 2 client", "", ""], ["", "fatter than i want to be", "", ""], ["", "Jesus would slap the shit out of you", "", ""], ["", "unpursuable: you cant get what you already got, etc.", "", ""], ["", "coaches honor", "", ""], ["", "The quiet disorder that keeps most people living/feeling small", "", ""], ["", "Grace in Action", "", ""], ["", "no one can calm your mind for you - you must learn to do it yourself", "", ""], ["", "coaches: charging your worth", "", ""], ["", "how to stop hating yourself", "", ""], ["", "2nd to none", "", ""], ["", "creating magnificent moments", "", ""], ["", "life chaning moments", "", ""], ["", "the epic battle for success", "", ""], ["", "circle of life - where / how people fit in - transparency", "", ""], ["", "to me. by me. through me.", "", ""], ["", "Gratitude & Humility to Grandiosity", "", ""], ["", "Living beyond the stigma of grief", "", ""], ["", "It is up to me but it is not all up to me", "", ""], ["", "101 ways i am posperous", "", ""], ["", "5 levels of listening", "", ""], ["", "5 reasons why you are doing this", "", ""], ["", "57 hats of business", "", ""], ["", "9 word attention span", "", ""], ["", "a life of shortcuts", "", ""], ["", "a manual for men - how to protect against femail cunning", "", ""], ["", "a nation hoodwinked", "", ""], ["", "aa dc story", "", ""], ["", "all positions are hard. giving up is just an option", "", ""], ["", "an ancient awareness", "", ""], ["", "atlas shrugged atlas", "", ""], ["", "avuse vs discipline", "", ""], ["", "being unwanted", "", ""], ["", "beleifein broken and different", "", ""], ["", "better questions i can ask today", "", ""], ["", "break that rope", "", ""], ["", "bright shiny object syndromee", "", ""], ["", "bring your awesomeness", "", ""], ["", "building an airplane while flying", "", ""], ["", "built to be fulfilled", "", ""], ["", "buxton witch", "", ""], ["", "call me dorothy", "", ""], ["", "caring for your space suit", "", ""], ["", "Chris", "", ""], ["", "come to my funeral", "", ""], ["", "communicate with yourelsf nicely", "", ""], ["", "compulsion fomo", "", ""], ["", "Craving Serentiy", "", ""], ["", "crawling through life", "", ""], ["", "curiosity is the antitdote for criticism", "", ""], ["", "cybr 101 - dont trust anything you hear or see or read on internet, email, social, etc -", "learn to investigate the real truth", ""], ["", "darkness is just another form of light", "", ""], ["", "deomons into diamonds", "", ""], ["", "dick maverick - teen detective", "", ""], ["", "dis-integrated living", "", ""], ["", "dont focus on purpose, focus on the joy of living. curiosity and creativity are the most powerful intrinsic tools here. purpose is built from intrinsic joyjoy allows us to have more than one purposeit is quite wonderful really. 'proof follows actions of assumed proof", "", ""], ["", "dont take yourself so damned seriously! its just your mindset", "", ""], ["", "doylestown underground", "", ""], ["", "dreams into stories", "", ""], ["", "drimmer boy", "", ""], ["", "drink from the shamman", "", ""], ["", "drinking without my permission", "", ""], ["", "embrace responsibility", "", ""], ["", "everyone has a day one", "", ""], ["", "everything i am seeking is seeking me too", "", ""], ["", "excuses", "", ""], ["", "experience is when action forms out of imagination/vision/dreaming. othersise it is all just fantasy.", "", ""], ["", "fear of truth", "", ""], ["", "feel forward", "", ""], ["", "fight vs strive", "", ""], ["", "Fighting for my right to be angry", "", ""], ["", "fire in the forest", "", ""], ["", "friendship tree", "", ""], ["", "fuck adapting! - unity not uniformity", "", ""], ["", "giving up on my self -", "how often have i given up on my self, my dreams, my desires just so i could fit in, be accepted and validated. re-hononr my authentic intrinsic loving loveable self", ""], ["", "goal setter to goal getter", "", ""], ["", "goals should be experiements", "", ""], ["", "God is not a psychophant", "", ""], ["", "god surrendered", "", ""], ["", "god would have said:", "", ""], ["", "Grief recovery handbook", "", ""], ["", "grinchy jr", "", ""], ["", "Heart of entrepreneurship", "", ""], ["", "history of gay aa", "", ""], ["", "hold people capable", "", ""], ["", "Home Road", "", ""], ["", "hoodwinked - how to stop people from getting over on you", "", ""], ["", "hopium addit", "", ""], ["", "how many pairs of stockings can he wear", "kids book", ""], ["", "how to feel connected when speacking to a room full of people", "", ""], ["", "how to live in the present moment", "", ""], ["", "how to live on one paycheck a month", "", ""], ["", "how to love yourself and manage your life", "", ""], ["", "how to speak like trump and mezmerize your audience", "", ""], ["", "i allow myself to be do and have all that enriches my life", "", ""], ["", "i help people access untapped internal resources which help them show up for their family, friends, jobs and businesses.", "", ""], ["", "i siezed the wrong day", "", ""], ["", "i willl never out perform the image i have of myself", "", ""], ["", "if i name it i beleive i can fix it! ha", "", ""], ["", "if you don't connect with people you cant communicate with them", "", ""], ["", "if you love jesus more than yoursel than you missed his point", "", ""], ["", "improve my job chances", "", ""], ["", "in full glory", "", ""], ["", "incurably me", "", ""], ["", "irrevocably me", "", ""], ["", "is it ok if i share something with you", "", ""], ["", "it is not a teachers obligation to make you feel good. it is to make you grow. there are times when this path is not easy or fun. challenged you will be . and grow you will become.", "", ""], ["", "it's not you, its you mindset", "", ""], ["", "jackpot rodeo", "", ""], ["", "jesus came for dinner", "", ""], ["", "jesus for dinner", "", ""], ["", "jesus was gay", "", ""], ["", "Jillion Gigawatts of self actuating energy", "", ""], ["", "Jingle Bells the Kitty", "", ""], ["", "johnny and robby", "", ""], ["", "just becuase you like someone does not mean they are right", "", ""], ["", "learn how to let yourself succeed and win", "", ""], ["", "life changing money and how to make it", "", ""], ["", "life is an orgasm", "", ""], ["", "life is embarrasing", "", ""], ["", "listening for what is not being said", "", ""], ["", "live above the line", "", ""], ["", "living a surrendered life", "", ""], ["", "living an intentional life vs a reactionary life", "", ""], ["", "love is worhty of love", "", ""], ["", "magic beans and how to get rich", "", ""], ["", "make an excuse to get it done", "", ""], ["", "make your dreams bigger than your fears", "", ""], ["", "man at the dam", "", ""], ["", "manufactured emptiness", "", ""], ["", "modern semite", "", ""], ["", "Mom's Cookbook", "", ""], ["", "mommy on a mission", "", ""], ["", "moms cookbook", "", ""], ["", "money is my servant", "", ""], ["", "MS abundant prosperity", "", ""], ["", "my best self.. and all that is", "", ""], ["", "my cleints are who i was.", "", ""], ["", "my cookbook", "", ""], ["", "my wierd is my gift", "", ""], ["", "my worth is an intrinsic worth", "", ""], ["", "never surrender your own intelligence for someone elses", "", ""], ["", "no one cares how much you know until thye know how much you care", "", ""], ["", "not born with walls", "", ""], ["", "not broken", "", ""], ["", "not deficient", "", ""], ["", "nothing to fix", "", ""], ["", "officer officer stop that man!", "", ""], ["", "out ti kill myself", "", ""], ["", "own my gift", "", ""], ["", "PFWP", "", ""], ["", "phd in catostrophic thinking", "", ""], ["", "pick on someone your own size", "", ""], ["", "play have fun be happy", "", ""], ["", "pregnant chef", "", ""], ["", "present bob", "", ""], ["", "Protest of the mind", "", ""], ["", "purpose in action", "", ""], ["", "quantum university", "", ""], ["", "reconstructing your relatioship with prosperity", "", ""], ["", "reflections of an indian awakening", "", ""], ["", "robbed by rebellion", "", ""], ["", "robby, you are the type of person that can have anything in this world. you have the ability and the intelligence to go anywhere, do anything and have everything in this world. it is yourse becuase you are that type of a persone. never let anyone tell you different and if they do, just say no thank you, i have my own beleifs that work for me!", "", ""], ["", "rocket juice", "", ""], ["", "safety vs protection", "", ""], ["", "scrub your soul", "", ""], ["", "shame at 6", "", ""], ["", "shock jock", "", ""], ["", "soing something in this lifetime, investing in myself, bringing about a benefit that is bigger than myself.", "", ""], ["", "sometimes you have to let yourself fall apart, because when you start putting yourself back together you only pick up the best of yourself", "", ""], ["", "source is my financial source", "", ""], ["", "source is my source", "", ""], ["", "sover for a day", "", ""], ["", "spaceman", "", ""], ["", "spider woman", "", ""], ["", "spider woman", "", ""], ["", "st francis prayer", "", ""], ["", "stop being told and start learning", "", ""], ["", "stop looking for proof that the universe loves you", "", ""], ["", "stop trying to convince universe god that you are worthy!", "how much time would you save - woudl you use all the extra energy you spend on convincing the universe that you are worthy on", ""], ["", "Study Smart Succeed Fast", "", ""], ["", "Surrogate of the gods", "", ""], ["", "take good care of your body becuase this is teh entrance to all other things life can offer to you", "", ""], ["", "the atrophy of being human in 2025", "", ""], ["", "the better you feel the faster you heal", "", ""], ["", "the body simple", "", ""], ["", "the boy", "", ""], ["", "the butterfly experienment - helping it from its cocoon", "", ""], ["", "the color of maine", "", ""], ["", "the complete christian guide to understanding hypocisy and bigotry", "", ""], ["", "the desire dilemma", "", ""], ["", "the drug of explanation", "", ""], ["", "the furry code - how to live as a furry - safely and authentically", "", ""], ["", "the gay code", "", ""], ["", "the homosexuality defect", "", ""], ["", "the issues that show up between you and your goals", "", ""], ["", "the jesus code", "", ""], ["", "the micro management tyranny of religion", "", ""], ["", "the only heroic act one can fucking well pull out of the bag in a situation like this is to get on with life from the very simple pleasure of remaining alive despite every attempt being made to killing yourself. Bowie", "", ""], ["", "the only way to show up for others is to show up for yourself. what interferes with THAT", "", ""], ["", "the other shoe", "", ""], ["", "the poverty code", "", ""], ["", "the power within me is greater than any fear before me", "", ""], ["", "the ruler", "", ""], ["", "the secret to a really great coach is you take someone ordinary adn make them extra ordinary - teach them to do something that no one would expect them to be able to do. like the chrysalys transforms the caterpillar into a butterfly.", "", ""], ["", "the shameful rose", "", ""], ["", "the skunk and the fish", "", ""], ["", "the source of every bully is jealousy", "", ""], ["", "the stoning of maine", "", ""], ["", "the turtle leads the way", "", ""], ["", "the way i see myself is how i am programming others to see me and respond to me and treat me", "", ""], ["", "the way i see myself is how i am programming others to see me and respond to me and treat me", "", ""], ["", "there is enough time", "", ""], ["", "there is no get rich quick way to being successful in a fulfilling way", "", ""], ["", "thrive in 25", "", ""], ["", "tools of empathy", "", ""], ["", "tradition party", "", ""], ["", "TRex", "", ""], ["", "turn your yummies into money", "", ""], ["", "waiting for god", "", ""], ["", "ways of giving love", "", ""], ["", "we are the last people on earth who want to face what we have done and we will do anything to stay blind of it", "", ""], ["", "what is important is how people feel around you", "", ""], ["", "what is so perfet about your life that you think you have the right to tell me what is so wrong with mine", "", ""], ["", "what is the least amount of work i can do to expereince the fullest abundance of the universe???? YES!", "", ""], ["", "what is the most important thing you can do to take care of yourself today", "", ""], ["", "what is the toughest thing about being you?", "", ""], ["", "what it is vs what it does", "", ""], ["", "what to do when you have a mean baby sitter", "", ""], ["", "what would it take for you to be proud of the work you do? would you be willing to have this person as your boss? are you willing to risk your entire business on this person?", "", ""], ["", "when later becomes now - healing procrastination from within", "", ""], ["", "when medicine stops working", "", ""], ["", "when robby got scared", "", ""], ["", "who am i trying to impress.", "", ""], ["", "whos my daddy", "", ""], ["", "why is it ok for jesus to love you despite all your own sins but it is not okay for you to love someone else despite all their sins", "", ""], ["", "why that", "", ""], ["", "write with authority", "", ""], ["", "you are never going to have the life you want if you are hanging on to the life you wish you had", "", ""], ["", "you can't save the world if you can't pay the rent", "", ""], ["", "you must be right!", "", ""], ["", "you paid to do this - for us to support you and teach you faster than any other way the world", "", ""], ["", "frustraion only means i have not done it yet", "", ""], ["", "my light", "", ""], ["", "27 rules of life", "", ""], ["", "my indespensible tools for successful living", "", ""], ["", "florence scoval schinn quotes", "", ""], ["", "miss graham miss demille", "", ""], ["", "ebeneezer", "", ""], ["", "off limits", "", ""], ["", "a rocket does not punish iteslf for course corrections", "", ""], ["", "a rose bud does not stop growing becuase it thinks it has grown enough. it grows to its fullest vibrancy", "", ""], ["", "what happens when i get what i want", "", ""], ["", "where did i get the idea that i am less than", "", ""], ["", "where did i get the idea that i have to fix something", "", ""], ["", "adam and eve", "", ""], ["", "living my values", "", ""], ["", "addiction is not who i am", "", ""], ["", "all great things are only a. number of small things that have carefully been collected togetther", "", ""], ["", "figuring out my life instead of living it", "", ""], ["", "as a man thinketh", "", ""], ["", "assumption and certainty", "", ""], ["", "at the root of existence", "", ""], ["", "law of expectancy", "", ""], ["", "authenticity", "", ""], ["", "awakening", "", ""], ["", "be kind anywat", "", ""], ["", "being special and great", "", ""], ["", "betty baby sitter", "", ""], ["", "my charachter was forged of the stuff universes are built from", "", ""], ["", "bourne as an expression of original joy", "", ""], ["", "boyfriend jesus", "", ""], ["", "buddha bob", "", ""], ["", "cant have yor cake and eat it too is a lie", "", ""], ["", "cange happens", "", ""], ["", "change your mind to change your world", "", ""], ["", "choice", "", ""], ["", "clinging to the reality i created", "", ""], ["", "cofort trap", "", ""], ["", "compalin my way to what i want", "", ""], ["", "connection connection", "", ""], ["", "creators create", "", ""], ["", "disdain of sales", "", ""], ["", "saying yes too much", "", ""], ["", "saying no too muchdo you really want to die in your own prison", "", ""], ["", "dont tell god what god cannot do", "", ""], ["", "empowerment", "", ""], ["", "escaping", "", ""], ["", "esfp", "", ""], ["", "fear is not being prepared", "", ""], ["", "fear is nothing more than focusing on what you do not what to have happen", "", ""], ["", "fear my friend", "", ""], ["", "fear of failure is just yourself telling yourself that you dont feel prepared enough for success", "", ""], ["", "fear of failure", "", ""], ["", "fear of success", "", ""], ["", "features vs benefits", "", ""], ["", "financial sabotage", "", ""], ["", "foods for the gut", "", ""], ["", "Fraud - the idea of charging to help someone", "", ""], ["", "from richard ross to eagle moon", "", ""], ["", "frustration", "", ""], ["", "fuck the feeling of always being behind", "", ""], ["", "give more! give what you didnt get!", "", ""], ["", "afew words well placed can change the course of someones life forever", "", ""], ["", "ego-lessness is the key to authenticity", "", ""], ["", "slefish self cherishing mind is determined to destroy you", "", ""], ["", "let go - drop all resistance - resistance is ego", "", ""], ["", "let go of allll stories - they are all ego", "", ""], ["", "help other achieve even if they do not know they are capable of achieving it!!!", "", ""], ["", "comedy gives others joy to help them through the challenge of life!", "", ""], ["", "life your life as a spiritual warrior  to your best!", "", ""], ["", "genius is not something you are born with - it si built discovered and developed", "", ""], ["", "giving unsolicited adice is a manipulative way to criticze someone", "", ""], ["", "go eat your bread", "", ""], ["", "goals create my future", "", ""], ["", "unused creativity turns into anger rage", "", ""], ["", "happiness questions", "", ""], ["", "hard work - making promises", "", ""], ["", "hardship often prepares ordinary people for an extraordinary destiny", "", ""], ["", "healing self gratification", "", ""], ["", "Hemmingway said that the only way to be a true author and to write from the heart is that you must first confront your own mortality and once you accept that then you can write with complete passion because now you have nothing to lose", "", ""], ["", "how did someone like you who was built for greatness end up here", "", ""], ["", "those you can make you believe absurdities can make you commit atrocities", "", ""], ["", "doubt is an uncomfortable condition, but certainty is a ridiculous one.", "", ""], ["", "it is difficult ot free fools from the chains they revere", "", ""], ["", "judge someone by their quesitons rather than their answers.", "", ""], ["", "you don't improve during the playoffs. you improve during practice.", "", ""], ["", "transform your to-do list into a WIN list!", "", ""], ["", "Let the saw do the work", "", ""], ["", "8-/20 rule. whats wrong with the 80?", "", ""], ["", "97% of all business owners say that marketing is their biggest challenge. Do you agree?", "", ""], ["", "Celebrate Success", "", ""], ["", "Outthinking puppys", "", ""], ["", "Kids book Thoughts and feelings poem - in folder", "", ""], ["", "Walking Between Raindrops", "", ""], ["high", "Awareness Has No Agenda", "", ""], ["med", "Programming your Habits", "", ""], ["", "Command Your Genie", "", ""], ["", "How To sell Your Soul", "", ""], ["", "Sunrise/sunset upon the wicked & let it shine on me", "", ""], ["", "PAssion doesn't last - Discipline does", "", ""], ["", "success is rooted in focus", "", ""], ["", "playing ping pong with guild and shame", "", ""], ["", "preach love : practice hate", "", ""], ["", "10 deep breaths", "", ""], ["", "The useless usefullness of memory - usefull uselessness", "", ""], ["", "Eternal now - timelessness", "", ""], ["", "The Art of Self Perception", "", ""], ["", "Affirmation Trauma", "", ""], ["", "positive thinking trauma", "", ""], ["", "All Book of Gods", "", "IN PROCESS"], ["", "one thing until it works", "", ""], ["", "Born perfec. programmed to fail", "", ""], ["", "how to ask the right questions", "", ""]];
+
+const GENIES_SEED = [
+ ["Youvatar",[["About Me “Attractive Character” Bio Genie","https://members.copyandcontent.ai/about-me-bio-genie/"],["Author Bio Genie – WriteYourBook.AI","https://members.copyandcontent.ai/author-bio-genie/"]]],
+ ["Avatar",[["Full Customer Avatar Profile Wizard V2.0","https://members.copyandcontent.ai/full-avatar-v2/"],["Customer Avatar Jr. Profile Wizard V2.0","https://members.copyandcontent.ai/avatar-jr-v20/"],["Customer Avatar Hot Button Research Wizard","https://members.copyandcontent.ai/avatar-hot-button-research-wizard/"],["One Word Customer Avatar Detective Genie","https://members.copyandcontent.ai/one-word-avatar-detective-genie/"]]],
+ ["Website",[["Authority Site Genie","https://members.copyandcontent.ai/site-genie/"],["GoHighLevel Tutorial (Website / Funnel Creation)","https://members.copyandcontent.ai/courses/gohighlevel-tutorial-website-funnel-creation/"]]],
+ ["Book",[["Non-Fiction Book Idea Genie","https://members.copyandcontent.ai/non-fiction-book-idea-genie/"],["Book Interview Questions Genie","https://members.copyandcontent.ai/book-interview-genie/"],["Curriculum / Course Outline Genie","https://members.copyandcontent.ai/curriculum-genie/"],["Paragraph Genie (Super)","https://members.copyandcontent.ai/paragraph-genie/"],["Amazing Story Genie","https://members.copyandcontent.ai/amazing-story-genie/"],["Rewrite Genie","https://members.copyandcontent.ai/rewrite-genie/"],["3, 5, 7 Word Hook Genie","https://members.copyandcontent.ai/3-5-7-word-hook-genie/"],["Title and Tagline Genie","https://members.copyandcontent.ai/title-and-tagline-genie/"],["Killer Headline Genie","https://members.copyandcontent.ai/killer-headline-genie/"],["Blog Post SUPER Genie","https://members.copyandcontent.ai/blog-post-super-genie/"],["Lead Magnet Title Genie","https://members.copyandcontent.ai/lead-magnet-title-genie/"],["Non-Fiction Book Question Chapter Answer Genie","https://members.copyandcontent.ai/non-fiction-book-question-chapter-answer-genie/"],["Book Intro / Conclusion Genie","https://members.copyandcontent.ai/faq-book-intro-conclusion-genie/"],["Author Bio Genie","https://members.copyandcontent.ai/author-bio-genie/"],["Back Page Ad Genie","https://members.copyandcontent.ai/back-page-ad-genie/"],["Kindle Book Description NON Fiction Genie","https://members.copyandcontent.ai/kindle-desc-genie-non-fiction/"]]],
+ ["Offer / Value",[["OTO Offer Genie","https://members.copyandcontent.ai/oto-offer-genie/"],["Offer Stack Bullets & Descriptions Genie","https://members.copyandcontent.ai/stack-bullets-genie/"],["Million Dollar Offer Genie","https://members.copyandcontent.ai/million-dollar-offer-genie/"],["Hot Button Offer Brainstorm Genie","https://members.copyandcontent.ai/hot-button-offer-brainstorm-genie/"],["Offer Brainstorm Genie","https://members.copyandcontent.ai/offer-brainstorm-genie/"],["Offer Jr. (CTA) Profile Wizard","https://members.copyandcontent.ai/offer-jr-profile-wizard-cta/"],["Offer Profile Full Stack Wizard","https://members.copyandcontent.ai/offer-profile-wizard-full-stack-offer/"]]],
+ ["Webinar",[["Presentation Constructor Genie (Super)","https://members.copyandcontent.ai/presentation-constructor-genie/"],["Lesson Plan / Module Outline Genie","https://members.copyandcontent.ai/lesson-plan-module-genie/"]]],
+ ["Course & Workshop",[["Curriculum / Course Outline Genie","https://members.copyandcontent.ai/curriculum-genie/"],["Lesson Plan / Module Outline Genie","https://members.copyandcontent.ai/lesson-plan-module-genie/"],["Presentation Constructor Super Genie","https://members.copyandcontent.ai/presentation-constructor-genie/"],["60-Second Video Shorts Genie","https://members.copyandcontent.ai/60-second-video-shorts-genie/"],["Customer Journey Genie","https://members.copyandcontent.ai/customer-journey-genie/"],["Quiz & Workbook Genie","https://members.copyandcontent.ai/quiz-workbook-genie/"],["Onboarding Email Genie","https://members.copyandcontent.ai/onboarding-email-genie-purchase/"],["Application Funnel Questions Genie","https://members.copyandcontent.ai/app-questions-genie/"]]],
+ ["Checklist",[["Checklist Genie","https://members.copyandcontent.ai/checklist-genie/"]]],
+ ["Blog",[["Blog Post SUPER Genie","https://members.copyandcontent.ai/blog-post-super-genie/"],["Content Curation “Sandwich” Genie (SUPER)","https://members.copyandcontent.ai/content-curation-sandwich-genie/"],["Instant Q&A Genie","https://members.copyandcontent.ai/instant-qa-genie/"],["Listicle Genie","https://members.copyandcontent.ai/listicle-genie/"],["Niche Word Definition Genie","https://members.copyandcontent.ai/niche-word-definition-genie/"],["Word Of The Day Genie","https://members.copyandcontent.ai/word-of-the-day-genie/"]]],
+ ["Podcast",[["Can I Be On Your Podcast Genie","https://members.copyandcontent.ai/can-i-be-on-your-podcast-genie/"]]],
+ ["Video",[["60-Second Video Shorts Genie","https://members.copyandcontent.ai/60-second-video-shorts-genie/"],["60-Second Video Hook and Theme Genie","https://members.copyandcontent.ai/60-second-video-hook-and-theme-genie/"],["Super Explainer Video Genie (Super)","https://members.copyandcontent.ai/super-explainer-video-genie/"]]],
+ ["Social Media",[["LinkedIn Post Genie","https://members.copyandcontent.ai/linkedin-post-genie/"],["Twitter Post Genie","https://members.copyandcontent.ai/twitter-post-genie/"],["Instagram Post Genie","https://members.copyandcontent.ai/instagram-post-genie/"],["Facebook Post Genie","https://members.copyandcontent.ai/facebook-post-genie/"]]],
+ ["Email",[["Onboarding Email Genie (Purchase)","https://members.copyandcontent.ai/onboarding-email-genie-purchase/"],["Email Composer Genie","https://members.copyandcontent.ai/email-composer-genie/"],["Email Subject Line Genie","https://members.copyandcontent.ai/email-subject-line-genie/"],["Email Teaser Genie","https://members.copyandcontent.ai/email-teaser-genie/"]]],
+ ["Promo & Ads",[["Lead Magnet Title Genie","https://members.copyandcontent.ai/lead-magnet-title-genie/"],["Event Promo Genie","https://members.copyandcontent.ai/event-promo-genie/"],["FB Ad Genie","https://members.copyandcontent.ai/fb-ad-genie/"],["Google Ads Genie","https://members.copyandcontent.ai/google-ads-genie/"],["Advertorial Genie","https://members.copyandcontent.ai/advertorial-genie/"]]],
+ ["Mission & Vision",[["Creed Genie","https://members.copyandcontent.ai/creed-genie/"]]]
+];
+
+/* =============== GitHub Gist storage =============== */
+const GIST_DATA_FILENAME = 'production_board_data.json';
+let CFG = {token:'', gistId:''};
+
+function loadCfg(){
+  try{ const c=localStorage.getItem('pb_cfg'); if(c) CFG=JSON.parse(c); } catch(e){}
+}
+function saveCfg(){ localStorage.setItem('pb_cfg', JSON.stringify(CFG)); }
+function setSaveState(t){ document.getElementById('saveState').textContent=t; }
+function isConfigured(){ return CFG.token && CFG.gistId; }
+
+async function gistGet(){
+  const r = await fetch(`https://api.github.com/gists/${CFG.gistId}`,
+    {headers:{'Authorization':`token ${CFG.token}`,'Accept':'application/vnd.github+json'}});
+  if(!r.ok) throw new Error(`Gist fetch failed: ${r.status}`);
+  const data = await r.json();
+  const raw = data.files?.[GIST_DATA_FILENAME]?.content;
+  if(!raw) return null;
+  return JSON.parse(raw);
+}
+
+async function gistSet(allData){
+  const r = await fetch(`https://api.github.com/gists/${CFG.gistId}`,{
+    method:'PATCH',
+    headers:{'Authorization':`token ${CFG.token}`,'Accept':'application/vnd.github+json','Content-Type':'application/json'},
+    body: JSON.stringify({files:{[GIST_DATA_FILENAME]:{content:JSON.stringify(allData)}}})
+  });
+  if(!r.ok) throw new Error(`Gist save failed: ${r.status}`);
+}
+
+// In-memory fallback while not configured
+const mem = {};
+let pendingSave = null;
+
+async function loadAllFromGist(){
+  if(!isConfigured()) return null;
+  return await gistGet();
+}
+
+function saveKey(key, val){
+  mem[key] = val;
+  setSaveState('saving…');
+  clearTimeout(pendingSave);
+  pendingSave = setTimeout(async ()=>{
+    if(!isConfigured()){ setSaveState('⚠ not saved — add token & Gist ID in ⚙ Settings'); return; }
+    try{
+      await gistSet({projects:S.projects, ideas:S.ideas, plan:S.plan, genies:S.genies});
+      setSaveState('✓ saved to Gist  ' + new Date().toLocaleTimeString());
+    } catch(e){
+      setSaveState('✗ save error — check Settings'); console.error(e);
+    }
+  }, 800);
+}
+
+/* settings panel */
+function openSettings(){
+  const existing = document.getElementById('settingsBg');
+  if(existing){ existing.remove(); return; }
+  const d = document.createElement('div');
+  d.id='settingsBg';
+  d.style.cssText='position:fixed;inset:0;background:rgba(32,36,43,.45);z-index:30;display:flex;align-items:center;justify-content:center';
+  d.innerHTML=`<div style="background:#fff;border-radius:12px;padding:26px;width:min(480px,92vw);box-shadow:0 8px 40px rgba(0,0,0,.18)">
+    <h2 style="font-family:var(--disp);font-weight:800;margin:0 0 6px">⚙ GitHub Gist Settings</h2>
+    <p style="font-size:13px;color:var(--ink2);margin:0 0 18px">Your data is stored in a private GitHub Gist. Set this up once per browser.</p>
+    <div style="margin-bottom:12px"><label style="display:block;font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--ink2);margin-bottom:5px">Personal Access Token</label>
+    <input id="cfg_token" type="password" value="${CFG.token}" placeholder="ghp_xxxxxxxxxxxx" style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;font-size:14px"></div>
+    <div style="margin-bottom:18px"><label style="display:block;font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--ink2);margin-bottom:5px">Gist ID</label>
+    <input id="cfg_gist" value="${CFG.gistId}" placeholder="a1b2c3d4e5f6..." style="width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:8px;font-size:14px"></div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button id="cfgSave" style="background:var(--press);color:#fff;border:none;border-radius:8px;padding:10px 18px;font-weight:600;cursor:pointer">Save & connect</button>
+      <button id="cfgTest" style="background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:10px 18px;font-weight:600;cursor:pointer">Test connection</button>
+      <button id="cfgClose" style="background:none;border:none;color:var(--ink2);padding:10px;cursor:pointer;margin-left:auto">Cancel</button>
+    </div>
+    <div id="cfgMsg" style="margin-top:12px;font-size:13px"></div>
+  </div>`;
+  document.body.appendChild(d);
+  d.querySelector('#cfgClose').onclick = ()=>d.remove();
+  d.onclick = e=>{ if(e.target===d) d.remove(); };
+  d.querySelector('#cfgSave').onclick = async ()=>{
+    CFG.token = d.querySelector('#cfg_token').value.trim();
+    CFG.gistId = d.querySelector('#cfg_gist').value.trim();
+    saveCfg();
+    d.querySelector('#cfgMsg').textContent='Saved. Testing connection…';
+    await testConnection(d);
+  };
+  d.querySelector('#cfgTest').onclick = async ()=>{ await testConnection(d); };
+}
+
+async function testConnection(d){
+  const msg = d.querySelector('#cfgMsg');
+  try{
+    const r = await fetch(`https://api.github.com/gists/${CFG.gistId}`,
+      {headers:{'Authorization':`token ${CFG.token}`}});
+    if(r.ok){ msg.style.color='var(--ok)'; msg.textContent='✓ Connected! Reloading data…'; setTimeout(()=>{d.remove(); location.reload();},1200); }
+    else{ msg.style.color='var(--danger)'; msg.textContent=`✗ Error ${r.status} — check your token and Gist ID`; }
+  } catch(e){ msg.style.color='var(--danger)'; msg.textContent='✗ Network error — check your token and try again'; }
+}
+
+/* =============== state =============== */
+let S = {projects:null, ideas:null, plan:null, genies:null};
+let activeTab = 'projects';
+let ideaFilter = {q:'', pri:'all', showDone:false};
+let genieQ = '';
+let drawerIdx = null;
+let openNoteId = null;
+
+const uid = ()=>Math.random().toString(36).slice(2,9);
+
+function seedAll(){
+  if(!S.projects){
+    S.projects = SEED_PROJECT_NAMES.map((n,i)=>({
+      id:uid(), name:n, notes:SEED_NOTES[i]||'', purpose:'', goal:'', cta:'',
+      cells:Object.fromEntries(ALL_ROWS.map(r=>[r,(SEED_DONE[r]||[]).includes(i)?2:0]))
+    }));
+    saveKey(KEYS.projects,S.projects);
+  }
+  if(!S.ideas){
+    S.ideas = IDEAS_SEED.map(([p,n,notes,done])=>({id:uid(),pri:p,name:n,notes:notes||'',done:done==='DONE'}));
+    saveKey(KEYS.ideas,S.ideas);
+  }
+  if(!S.plan){ S.plan = {}; saveKey(KEYS.plan,S.plan); }
+  if(!S.genies){
+    S.genies = GENIES_SEED.map(([cat,links])=>({cat, links:links.map(([t,u])=>({id:uid(),t,u}))}));
+    saveKey(KEYS.genies,S.genies);
+  }
+}
+
+/* =============== rendering =============== */
+const $ = s=>document.querySelector(s);
+const esc = s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+const TABS = [
+  {id:'projects', label:'Production Grid', count:()=>S.projects.length},
+  {id:'ideas', label:'Book & Ideas', count:()=>S.ideas.filter(i=>!i.done).length},
+  {id:'plan', label:'Next Big Action', count:()=>null},
+  {id:'genies', label:'Genies', count:()=>S.genies.reduce((a,c)=>a+c.links.length,0)}
+];
+
+function renderTabs(){
+  $('#tabs').innerHTML = TABS.map(t=>{
+    const c=t.count(); 
+    return `<button class="tab" role="tab" aria-selected="${activeTab===t.id}" data-tab="${t.id}">${t.label}${c!=null?`<span class="cnt">${c}</span>`:''}</button>`;
+  }).join('');
+  $('#tabs').querySelectorAll('.tab').forEach(b=>b.onclick=()=>{activeTab=b.dataset.tab; render();});
+}
+
+function render(){
+  renderTabs();
+  const m = $('#main');
+  if(activeTab==='projects') renderMatrix(m);
+  else if(activeTab==='ideas') renderIdeas(m);
+  else if(activeTab==='plan') renderPlan(m);
+  else renderGenies(m);
+}
+
+/* ---- production grid ---- */
+function renderMatrix(m){
+  const projs = S.projects;
+  let head = `<th class="rowlab" style="height:150px;vertical-align:bottom;padding-bottom:8px">Deliverable</th>` +
+    projs.map((p,i)=>{
+      const total = ALL_ROWS.length;
+      const done = ALL_ROWS.filter(r=>p.cells[r]===2).length;
+      const pct = Math.round(done/total*100);
+      return `<th><div class="colhead"><span class="nm" data-open="${i}" title="${esc(p.name)} — click for details">${esc(p.name)}</span><span class="pbar"><i style="width:${pct}%"></i></span><span class="pnum">${done}</span></div></th>`;
+    }).join('');
+  let body='';
+  for(const g of GROUPS){
+    body += `<tr class="grp"><td colspan="${projs.length+1}">${esc(g.name)}</td></tr>`;
+    for(const row of g.rows){
+      body += `<tr><td class="rowlab" title="${esc(row)}">${esc(row)}</td>` +
+        projs.map((p,i)=>{
+          const s = p.cells[row]||0;
+          return `<td class="cell s${s}" data-p="${i}" data-r="${esc(row)}" role="button" tabindex="0" aria-label="${esc(p.name)} — ${esc(row)}: ${s===2?'done':s===1?'planned':'not started'}"><span class="swipe"></span></td>`;
+        }).join('') + `</tr>`;
+    }
+  }
+  m.innerHTML = `
+    <div class="toolrow">
+      <button class="btn primary" id="addProj">＋ Add project</button>
+      <div class="legend">
+        <span><span class="swipe done"></span>done</span>
+        <span><span class="swipe plan"></span>planned</span>
+        <span>Click a cell to cycle · click a project name to edit details</span>
+      </div>
+    </div>
+    <div class="matrix-wrap"><table class="matrix"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>
+    ${drawerIdx!=null?renderDrawer():''}`;
+
+  m.querySelectorAll('.cell').forEach(c=>{
+    const act = ()=>{
+      const p=S.projects[+c.dataset.p], r=c.dataset.r;
+      p.cells[r]=((p.cells[r]||0)+1)%3;
+      saveKey(KEYS.projects,S.projects); render();
+    };
+    c.onclick=act;
+    c.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();act();}};
+  });
+  m.querySelectorAll('[data-open]').forEach(n=>n.onclick=()=>{drawerIdx=+n.dataset.open; render();});
+  $('#addProj').onclick=()=>{
+    const name=prompt('Project / book / product name:');
+    if(!name||!name.trim())return;
+    S.projects.push({id:uid(),name:name.trim(),notes:'',purpose:'',goal:'',cta:'',cells:Object.fromEntries(ALL_ROWS.map(r=>[r,0]))});
+    saveKey(KEYS.projects,S.projects); render();
+  };
+  if(drawerIdx!=null) wireDrawer();
+}
+
+function renderDrawer(){
+  const p=S.projects[drawerIdx];
+  if(!p){drawerIdx=null;return '';}
+  const f=(id,label,val,ta)=>`<div class="field"><label for="${id}">${label}</label>${ta?`<textarea id="${id}">${esc(val)}</textarea>`:`<input id="${id}" value="${esc(val)}">`}</div>`;
+  return `<div class="drawer-bg" id="drawerBg"><div class="drawer" role="dialog" aria-label="Project details">
+    <h2>${esc(p.name)}</h2>
+    <div class="sub">${ALL_ROWS.filter(r=>p.cells[r]===2).length} of ${ALL_ROWS.length} deliverables done</div>
+    ${f('d_name','Name',p.name)}
+    ${f('d_purpose','Purpose — what is this for?',p.purpose,true)}
+    ${f('d_goal','Goal / result wanted',p.goal,true)}
+    ${f('d_cta','Call to action',p.cta)}
+    ${f('d_notes','Notes',p.notes,true)}
+    <div class="actions">
+      <button class="btn primary" id="dSave">Save & close</button>
+      <button class="btn" id="dClose">Close</button>
+      <button class="btn ghost" id="dDel" style="margin-left:auto">Delete project</button>
+    </div>
+  </div></div>`;
+}
+function wireDrawer(){
+  const p=S.projects[drawerIdx];
+  const close=()=>{drawerIdx=null;render();};
+  $('#drawerBg').onclick=e=>{if(e.target.id==='drawerBg')close();};
+  $('#dClose').onclick=close;
+  $('#dSave').onclick=()=>{
+    p.name=$('#d_name').value.trim()||p.name;
+    p.purpose=$('#d_purpose').value; p.goal=$('#d_goal').value;
+    p.cta=$('#d_cta').value; p.notes=$('#d_notes').value;
+    saveKey(KEYS.projects,S.projects); close();
+  };
+  $('#dDel').onclick=()=>{
+    if(confirm(`Delete "${p.name}" and its checklist? This can't be undone.`)){
+      S.projects.splice(drawerIdx,1); saveKey(KEYS.projects,S.projects); close();
+    }
+  };
+}
+
+/* ---- ideas ---- */
+const PRI_ORDER={top:0,high:1,med:2,star:3,'':4};
+const PRI_LABEL={top:'TOP',high:'HIGH',med:'MED',star:'★',' ':'—','':'—'};
+function renderIdeas(m){
+  const {q,pri,showDone}=ideaFilter;
+  let list=S.ideas.filter(i=>(showDone||!i.done)
+    && (pri==='all'||i.pri===pri)
+    && (!q || i.name.toLowerCase().includes(q) || (i.notes||'').toLowerCase().includes(q)));
+  list.sort((a,b)=>(PRI_ORDER[a.pri]??4)-(PRI_ORDER[b.pri]??4));
+  const chips=[['all','All'],['top','Top'],['high','High'],['med','Med'],['star','★ Starred'],['','Unranked']];
+  m.innerHTML=`
+    <div class="idea-add"><input id="newIdea" placeholder="Capture a new book / content idea and press Enter…"><button class="btn primary" id="addIdea">Add</button></div>
+    <div class="toolrow">
+      <input class="search" id="ideaQ" placeholder="Search ${S.ideas.length} ideas…" value="${esc(q)}">
+      ${chips.map(([v,l])=>`<button class="chip ${pri===v?'on':''}" data-pri="${v}">${l}</button>`).join('')}
+      <button class="chip ${showDone?'on':''}" id="toggleDone">Show done</button>
+    </div>
+    <div>${list.length?list.map(i=>`
+      <div class="idea ${i.done?'done':''}">
+        <button class="pri p-${i.pri}" data-cycle="${i.id}" title="Click to change priority">${PRI_LABEL[i.pri]??'—'}</button>
+        <input class="nm" data-nm="${i.id}" value="${esc(i.name)}">
+        <button class="note-btn ${i.notes?'has':''}" data-note="${i.id}" title="Notes">✎</button>
+        <input type="checkbox" data-done="${i.id}" ${i.done?'checked':''} title="Mark done">
+        <button class="del" data-del="${i.id}" title="Delete">×</button>
+      </div>
+      ${openNoteId===i.id?`<div class="idea-note"><textarea data-notetext="${i.id}" placeholder="Notes…">${esc(i.notes)}</textarea></div>`:''}
+    `).join(''):'<div class="empty">No ideas match. Try clearing the search or filters.</div>'}</div>`;
+
+  const byId=id=>S.ideas.find(x=>x.id===id);
+  const addFn=()=>{
+    const v=$('#newIdea').value.trim(); if(!v)return;
+    S.ideas.unshift({id:uid(),pri:'',name:v,notes:'',done:false});
+    saveKey(KEYS.ideas,S.ideas); render();
+    setTimeout(()=>$('#newIdea')?.focus(),0);
+  };
+  $('#addIdea').onclick=addFn;
+  $('#newIdea').onkeydown=e=>{if(e.key==='Enter')addFn();};
+  $('#ideaQ').oninput=e=>{ideaFilter.q=e.target.value.toLowerCase(); renderIdeasListOnly(m);};
+  m.querySelectorAll('[data-pri]').forEach(c=>c.onclick=()=>{ideaFilter.pri=c.dataset.pri;render();});
+  $('#toggleDone').onclick=()=>{ideaFilter.showDone=!ideaFilter.showDone;render();};
+  wireIdeaRows(m,byId);
+}
+function renderIdeasListOnly(m){ // keep focus in search while typing
+  const scroll=window.scrollY; renderIdeas(m);
+  const q=$('#ideaQ'); q.focus(); q.setSelectionRange(q.value.length,q.value.length);
+  window.scrollTo(0,scroll);
+}
+function wireIdeaRows(m,byId){
+  m.querySelectorAll('[data-cycle]').forEach(b=>b.onclick=()=>{
+    const i=byId(b.dataset.cycle); const seq=['','top','high','med','star'];
+    i.pri=seq[(seq.indexOf(i.pri)+1)%seq.length];
+    saveKey(KEYS.ideas,S.ideas); render();
+  });
+  m.querySelectorAll('[data-nm]').forEach(inp=>inp.onchange=()=>{
+    byId(inp.dataset.nm).name=inp.value; saveKey(KEYS.ideas,S.ideas);
+  });
+  m.querySelectorAll('[data-done]').forEach(cb=>cb.onchange=()=>{
+    byId(cb.dataset.done).done=cb.checked; saveKey(KEYS.ideas,S.ideas); render();
+  });
+  m.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{
+    const i=byId(b.dataset.del);
+    if(confirm(`Delete idea "${i.name}"?`)){ S.ideas=S.ideas.filter(x=>x.id!==i.id); saveKey(KEYS.ideas,S.ideas); render(); }
+  });
+  m.querySelectorAll('[data-note]').forEach(b=>b.onclick=()=>{
+    openNoteId = openNoteId===b.dataset.note?null:b.dataset.note; render();
+  });
+  m.querySelectorAll('[data-notetext]').forEach(t=>t.oninput=()=>{
+    byId(t.dataset.notetext).notes=t.value; saveKey(KEYS.ideas,S.ideas);
+    m.querySelector(`[data-note="${t.dataset.notetext}"]`)?.classList.toggle('has',!!t.value);
+  });
+}
+
+/* ---- weekly plan ---- */
+const PLAN_FIELDS=[['where','Where am I now'],['action','Next big action'],['result','Next big result'],['week','My actions this week'],['obstacles','Obstacles'],['support','Support needed — from whom / where']];
+function renderPlan(m){
+  m.innerHTML=`
+    <div class="week-grid">
+      <div class="gcard">
+        <h3>Is it a Good Action?</h3>
+        <ul>
+          <li><b>Non-emotional</b> — measurable, not a mood</li>
+          <li><b>Controllable</b> — I am the cause</li>
+          <li><b>Doable</b> — done / not done</li>
+          <li><b>Meaningful</b> — not B.S.</li>
+          <li><b>Compoundable</b> — exponential growth</li>
+          <li><b>Scalable</b> — it works: go big</li>
+        </ul>
+      </div>
+      ${S.projects.map(p=>{
+        const d=S.plan[p.id]||{};
+        return `<div class="wcard"><h3>${esc(p.name)}</h3>
+          ${PLAN_FIELDS.map(([k,l])=>`<div class="field"><label>${l}</label><textarea data-plan="${p.id}" data-f="${k}" rows="2">${esc(d[k]||'')}</textarea></div>`).join('')}
+        </div>`;
+      }).join('')}
+    </div>`;
+  m.querySelectorAll('[data-plan]').forEach(t=>t.oninput=()=>{
+    const id=t.dataset.plan; S.plan[id]=S.plan[id]||{}; S.plan[id][t.dataset.f]=t.value;
+    saveKey(KEYS.plan,S.plan);
+  });
+}
+
+/* ---- genies ---- */
+function renderGenies(m){
+  const q=genieQ.toLowerCase();
+  m.innerHTML=`
+    <div class="toolrow">
+      <input class="search" id="genQ" placeholder="Search genies…" value="${esc(genieQ)}">
+      <button class="btn primary" id="addGen">＋ Add link</button>
+    </div>
+    ${S.genies.map((c,ci)=>{
+      const links=c.links.filter(l=>!q||l.t.toLowerCase().includes(q)||c.cat.toLowerCase().includes(q));
+      if(!links.length)return '';
+      return `<div class="gen-cat"><h3>${esc(c.cat)} <span class="n">${links.length}</span></h3>
+        <div class="gen-links">${links.map(l=>`
+          <a class="glink" href="${esc(l.u)}" target="_blank" rel="noopener">
+            <span>${esc(l.t)}</span><span class="arrow">↗</span>
+            <button class="del" data-gdel="${ci}:${l.id}" title="Remove link">×</button>
+          </a>`).join('')}</div></div>`;
+    }).join('')||'<div class="empty">No genies match that search.</div>'}`;
+  $('#genQ').oninput=e=>{genieQ=e.target.value; const s=window.scrollY; renderGenies(m); const i=$('#genQ'); i.focus(); i.setSelectionRange(i.value.length,i.value.length); window.scrollTo(0,s);};
+  $('#addGen').onclick=()=>{
+    const t=prompt('Link name:'); if(!t)return;
+    const u=prompt('URL:'); if(!u)return;
+    const cat=prompt('Category (existing or new):','Book'); if(!cat)return;
+    let c=S.genies.find(x=>x.cat.toLowerCase()===cat.toLowerCase());
+    if(!c){c={cat,links:[]};S.genies.push(c);}
+    c.links.push({id:uid(),t,u});
+    saveKey(KEYS.genies,S.genies); render();
+  };
+  m.querySelectorAll('[data-gdel]').forEach(b=>b.onclick=e=>{
+    e.preventDefault(); e.stopPropagation();
+    const [ci,id]=b.dataset.gdel.split(':');
+    const c=S.genies[+ci];
+    if(confirm('Remove this link?')){ c.links=c.links.filter(l=>l.id!==id); saveKey(KEYS.genies,S.genies); render(); }
+  });
+}
+
+/* =============== boot =============== */
+(async ()=>{
+  loadCfg();
+  if(!isConfigured()){
+    setSaveState('⚙ Click the gear to connect your GitHub Gist');
+  }
+  let loaded = null;
+  if(isConfigured()){
+    setSaveState('loading from Gist…');
+    try{ loaded = await loadAllFromGist(); }
+    catch(e){ setSaveState('✗ Could not load from Gist — check Settings'); console.error(e); }
+  }
+  if(loaded){
+    S = {projects: loaded.projects||null, ideas: loaded.ideas||null, plan: loaded.plan||null, genies: loaded.genies||null};
+  }
+  seedAll();
+  if(isConfigured() && !loaded){
+    // first time with this gist — push the seed data up
+    setSaveState('first run — saving seed data to Gist…');
+    try{
+      await gistSet({projects:S.projects, ideas:S.ideas, plan:S.plan, genies:S.genies});
+      setSaveState('✓ saved to Gist  ' + new Date().toLocaleTimeString());
+    } catch(e){ setSaveState('✗ save error — check Settings'); }
+  } else if(isConfigured()){
+    setSaveState('✓ loaded  ' + new Date().toLocaleTimeString());
+  }
+  render();
+})();
+</script>
+</body>
+</html>
