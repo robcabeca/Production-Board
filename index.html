@@ -68,12 +68,15 @@ table.matrix{border-collapse:separate;border-spacing:0;font-size:13px}
 .cell{width:46px;height:34px;text-align:center;padding:0;cursor:pointer;user-select:none;position:relative}
 .cell:hover{background:var(--press-soft)}
 .cell .swipe{display:inline-block;width:26px;height:16px;border-radius:5px;transform:rotate(-3deg)}
-.cell.s2 .swipe{background:var(--mark);box-shadow:0 0 0 1px rgba(107,84,0,.15) inset}
-.cell.s2 .swipe::after{content:"✓";display:block;font-size:12px;font-weight:700;color:var(--mark-ink);line-height:16px}
+.cell.s3 .swipe{background:var(--mark);box-shadow:0 0 0 1px rgba(107,84,0,.15) inset}
+.cell.s3 .swipe::after{content:"✓";display:block;font-size:12px;font-weight:700;color:var(--mark-ink);line-height:16px}
+.cell.s2 .swipe{background:#4CAF50;box-shadow:0 0 0 1px rgba(0,80,0,.15) inset}
+.cell.s2 .swipe::after{content:"▶";display:block;font-size:10px;font-weight:700;color:#fff;line-height:16px}
 .cell.s1 .swipe{border:2px dashed var(--plan)}
 .legend{display:flex;gap:16px;margin-top:10px;font-size:12px;color:var(--ink2);align-items:center;flex-wrap:wrap}
 .legend .swipe{display:inline-block;width:22px;height:13px;border-radius:4px;transform:rotate(-3deg);vertical-align:-2px;margin-right:5px}
 .legend .done{background:var(--mark)}
+.legend .inprog{background:#4CAF50}
 .legend .plan{border:2px dashed var(--plan)}
 
 /* project drawer */
@@ -231,14 +234,15 @@ async function loadAllFromGist(){
 }
 
 function saveKey(key, val){
-  mem[key] = val;
+  // key param kept for call-site compatibility; we always save full state to Gist
+  if(key && val !== undefined) S[key] = val;
   setSaveState('saving…');
   clearTimeout(pendingSave);
   pendingSave = setTimeout(async ()=>{
     if(!isConfigured()){ setSaveState('⚠ not saved — add token & Gist ID in ⚙ Settings'); return; }
     try{
       await gistSet({projects:S.projects, ideas:S.ideas, plan:S.plan, genies:S.genies});
-      setSaveState('✓ saved to Gist  ' + new Date().toLocaleTimeString());
+      setSaveState('✓ saved  ' + new Date().toLocaleTimeString());
     } catch(e){
       setSaveState('✗ save error — check Settings'); console.error(e);
     }
@@ -303,7 +307,7 @@ function seedAll(){
   if(!S.projects){
     S.projects = SEED_PROJECT_NAMES.map((n,i)=>({
       id:uid(), name:n, notes:SEED_NOTES[i]||'', purpose:'', goal:'', cta:'',
-      cells:Object.fromEntries(ALL_ROWS.map(r=>[r,(SEED_DONE[r]||[]).includes(i)?2:0]))
+      cells:Object.fromEntries(ALL_ROWS.map(r=>[r,(SEED_DONE[r]||[]).includes(i)?3:0]))
     }));
   }
   if(!S.ideas){
@@ -349,7 +353,7 @@ function renderMatrix(m){
   let head = `<th class="rowlab" style="height:150px;vertical-align:bottom;padding-bottom:8px">Deliverable</th>` +
     projs.map((p,i)=>{
       const total = ALL_ROWS.length;
-      const done = ALL_ROWS.filter(r=>p.cells[r]===2).length;
+      const done = ALL_ROWS.filter(r=>p.cells[r]===3).length;
       const pct = Math.round(done/total*100);
       return `<th><div class="colhead"><span class="nm" data-open="${i}" title="${esc(p.name)} — click for details">${esc(p.name)}</span><span class="pbar"><i style="width:${pct}%"></i></span><span class="pnum">${done}</span></div></th>`;
     }).join('');
@@ -360,7 +364,7 @@ function renderMatrix(m){
       body += `<tr><td class="rowlab" title="${esc(row)}">${esc(row)}</td>` +
         projs.map((p,i)=>{
           const s = p.cells[row]||0;
-          return `<td class="cell s${s}" data-p="${i}" data-r="${esc(row)}" role="button" tabindex="0" aria-label="${esc(p.name)} — ${esc(row)}: ${s===2?'done':s===1?'planned':'not started'}"><span class="swipe"></span></td>`;
+          return `<td class="cell s${s}" data-p="${i}" data-r="${esc(row)}" role="button" tabindex="0" aria-label="${esc(p.name)} — ${esc(row)}: ${s===3?'done':s===2?'in progress':s===1?'planned':'not started'}"><span class="swipe"></span></td>`;
         }).join('') + `</tr>`;
     }
   }
@@ -369,8 +373,9 @@ function renderMatrix(m){
       <button class="btn primary" id="addProj">＋ Add project</button>
       <div class="legend">
         <span><span class="swipe done"></span>done</span>
+        <span><span class="swipe inprog"></span>in progress</span>
         <span><span class="swipe plan"></span>planned</span>
-        <span>Click a cell to cycle · click a project name to edit details</span>
+        <span>Click to cycle: empty → planned → in progress → done</span>
       </div>
     </div>
     <div class="matrix-wrap"><table class="matrix"><thead><tr>${head}</tr></thead><tbody>${body}</tbody></table></div>
@@ -379,8 +384,8 @@ function renderMatrix(m){
   m.querySelectorAll('.cell').forEach(c=>{
     const act = ()=>{
       const p=S.projects[+c.dataset.p], r=c.dataset.r;
-      p.cells[r]=((p.cells[r]||0)+1)%3;
-      saveKey(KEYS.projects,S.projects); render();
+      p.cells[r]=((p.cells[r]||0)+1)%4;
+      saveKey("projects",S.projects); render();
     };
     c.onclick=act;
     c.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();act();}};
@@ -390,7 +395,7 @@ function renderMatrix(m){
     const name=prompt('Project / book / product name:');
     if(!name||!name.trim())return;
     S.projects.push({id:uid(),name:name.trim(),notes:'',purpose:'',goal:'',cta:'',cells:Object.fromEntries(ALL_ROWS.map(r=>[r,0]))});
-    saveKey(KEYS.projects,S.projects); render();
+    saveKey("projects",S.projects); render();
   };
   if(drawerIdx!=null) wireDrawer();
 }
@@ -401,7 +406,7 @@ function renderDrawer(){
   const f=(id,label,val,ta)=>`<div class="field"><label for="${id}">${label}</label>${ta?`<textarea id="${id}">${esc(val)}</textarea>`:`<input id="${id}" value="${esc(val)}">`}</div>`;
   return `<div class="drawer-bg" id="drawerBg"><div class="drawer" role="dialog" aria-label="Project details">
     <h2>${esc(p.name)}</h2>
-    <div class="sub">${ALL_ROWS.filter(r=>p.cells[r]===2).length} of ${ALL_ROWS.length} deliverables done</div>
+    <div class="sub">${ALL_ROWS.filter(r=>p.cells[r]===3).length} of ${ALL_ROWS.length} deliverables done</div>
     ${f('d_name','Name',p.name)}
     ${f('d_purpose','Purpose — what is this for?',p.purpose,true)}
     ${f('d_goal','Goal / result wanted',p.goal,true)}
@@ -423,11 +428,11 @@ function wireDrawer(){
     p.name=$('#d_name').value.trim()||p.name;
     p.purpose=$('#d_purpose').value; p.goal=$('#d_goal').value;
     p.cta=$('#d_cta').value; p.notes=$('#d_notes').value;
-    saveKey(KEYS.projects,S.projects); close();
+    saveKey("projects",S.projects); close();
   };
   $('#dDel').onclick=()=>{
     if(confirm(`Delete "${p.name}" and its checklist? This can't be undone.`)){
-      S.projects.splice(drawerIdx,1); saveKey(KEYS.projects,S.projects); close();
+      S.projects.splice(drawerIdx,1); saveKey("projects",S.projects); close();
     }
   };
 }
@@ -464,7 +469,7 @@ function renderIdeas(m){
   const addFn=()=>{
     const v=$('#newIdea').value.trim(); if(!v)return;
     S.ideas.unshift({id:uid(),pri:'',name:v,notes:'',done:false});
-    saveKey(KEYS.ideas,S.ideas); render();
+    saveKey("ideas",S.ideas); render();
     setTimeout(()=>$('#newIdea')?.focus(),0);
   };
   $('#addIdea').onclick=addFn;
@@ -483,23 +488,23 @@ function wireIdeaRows(m,byId){
   m.querySelectorAll('[data-cycle]').forEach(b=>b.onclick=()=>{
     const i=byId(b.dataset.cycle); const seq=['','top','high','med','star'];
     i.pri=seq[(seq.indexOf(i.pri)+1)%seq.length];
-    saveKey(KEYS.ideas,S.ideas); render();
+    saveKey("ideas",S.ideas); render();
   });
   m.querySelectorAll('[data-nm]').forEach(inp=>inp.onchange=()=>{
-    byId(inp.dataset.nm).name=inp.value; saveKey(KEYS.ideas,S.ideas);
+    byId(inp.dataset.nm).name=inp.value; saveKey("ideas",S.ideas);
   });
   m.querySelectorAll('[data-done]').forEach(cb=>cb.onchange=()=>{
-    byId(cb.dataset.done).done=cb.checked; saveKey(KEYS.ideas,S.ideas); render();
+    byId(cb.dataset.done).done=cb.checked; saveKey("ideas",S.ideas); render();
   });
   m.querySelectorAll('[data-del]').forEach(b=>b.onclick=()=>{
     const i=byId(b.dataset.del);
-    if(confirm(`Delete idea "${i.name}"?`)){ S.ideas=S.ideas.filter(x=>x.id!==i.id); saveKey(KEYS.ideas,S.ideas); render(); }
+    if(confirm(`Delete idea "${i.name}"?`)){ S.ideas=S.ideas.filter(x=>x.id!==i.id); saveKey("ideas",S.ideas); render(); }
   });
   m.querySelectorAll('[data-note]').forEach(b=>b.onclick=()=>{
     openNoteId = openNoteId===b.dataset.note?null:b.dataset.note; render();
   });
   m.querySelectorAll('[data-notetext]').forEach(t=>t.oninput=()=>{
-    byId(t.dataset.notetext).notes=t.value; saveKey(KEYS.ideas,S.ideas);
+    byId(t.dataset.notetext).notes=t.value; saveKey("ideas",S.ideas);
     m.querySelector(`[data-note="${t.dataset.notetext}"]`)?.classList.toggle('has',!!t.value);
   });
 }
@@ -529,7 +534,7 @@ function renderPlan(m){
     </div>`;
   m.querySelectorAll('[data-plan]').forEach(t=>t.oninput=()=>{
     const id=t.dataset.plan; S.plan[id]=S.plan[id]||{}; S.plan[id][t.dataset.f]=t.value;
-    saveKey(KEYS.plan,S.plan);
+    saveKey("plan",S.plan);
   });
 }
 
@@ -559,13 +564,13 @@ function renderGenies(m){
     let c=S.genies.find(x=>x.cat.toLowerCase()===cat.toLowerCase());
     if(!c){c={cat,links:[]};S.genies.push(c);}
     c.links.push({id:uid(),t,u});
-    saveKey(KEYS.genies,S.genies); render();
+    saveKey("genies",S.genies); render();
   };
   m.querySelectorAll('[data-gdel]').forEach(b=>b.onclick=e=>{
     e.preventDefault(); e.stopPropagation();
     const [ci,id]=b.dataset.gdel.split(':');
     const c=S.genies[+ci];
-    if(confirm('Remove this link?')){ c.links=c.links.filter(l=>l.id!==id); saveKey(KEYS.genies,S.genies); render(); }
+    if(confirm('Remove this link?')){ c.links=c.links.filter(l=>l.id!==id); saveKey("genies",S.genies); render(); }
   });
 }
 
