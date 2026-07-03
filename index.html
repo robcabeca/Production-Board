@@ -1,3 +1,4 @@
+
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -304,16 +305,13 @@ function seedAll(){
       id:uid(), name:n, notes:SEED_NOTES[i]||'', purpose:'', goal:'', cta:'',
       cells:Object.fromEntries(ALL_ROWS.map(r=>[r,(SEED_DONE[r]||[]).includes(i)?2:0]))
     }));
-    saveKey(KEYS.projects,S.projects);
   }
   if(!S.ideas){
     S.ideas = IDEAS_SEED.map(([p,n,notes,done])=>({id:uid(),pri:p,name:n,notes:notes||'',done:done==='DONE'}));
-    saveKey(KEYS.ideas,S.ideas);
   }
-  if(!S.plan){ S.plan = {}; saveKey(KEYS.plan,S.plan); }
+  if(!S.plan){ S.plan = {}; }
   if(!S.genies){
     S.genies = GENIES_SEED.map(([cat,links])=>({cat, links:links.map(([t,u])=>({id:uid(),t,u}))}));
-    saveKey(KEYS.genies,S.genies);
   }
 }
 
